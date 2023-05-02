@@ -2,13 +2,13 @@ package bzh.ya2o.telemetry
 package server
 
 import bzh.ya2o.telemetry.model.Measurement
+import bzh.ya2o.telemetry.server.JsonDecoders._
 import cats.effect.Async
 import cats.implicits._
-import org.http4s.EntityDecoder
-import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityDecoder
 import org.http4s.dsl.Http4sDsl
-import bzh.ya2o.telemetry.server.JsonDecoders._
+import org.http4s.EntityDecoder
+import org.http4s.HttpRoutes
 
 object Routes {
 

@@ -6,10 +6,10 @@ import cats.effect.Async
 import cats.effect.Resource
 import cats.syntax.all._
 import com.comcast.ip4s._
-import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.middleware.Logger
+import org.http4s.HttpApp
 
 object Server {
 

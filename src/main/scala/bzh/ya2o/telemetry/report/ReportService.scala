@@ -12,7 +12,6 @@ import cats.implicits._
 import fs2.Stream
 import io.circe.syntax._
 import io.circe.Encoder
-
 import java.time.Instant
 import scala.collection.SortedMap
 import scala.concurrent.duration._
@@ -60,9 +59,8 @@ class ReportServiceImpl[F[_]](config: ReportConfig)(implicit F: Async[F], logger
   override def report(input: Stream[F, Measurement]): Stream[F, Report] = {
 
     def computeDecimalDivision(f: Float): Int = {
-      // Compute in which "division" a value belongs, i.e. 0 ≤ division0 < 10 ≤ division10 < 20 ≤ division20, etc.
-      ((f / 10).toInt) * 10
-      // alternative computation: val division = (f - (f % 10)).toInt
+      // Compute in which "division" a value belongs, i.e. 0 < division0 ≤ 10 < division10 ≤ 20 < division20, etc.
+      (Math.ceil(f.toDouble / 10).toInt - 1) * 10
     }
 
     def updateCounters(

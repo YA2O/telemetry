@@ -4,8 +4,8 @@ package config
 import cats.implicits._
 import ciris._
 import ciris.refined._
-import eu.timepit.refined.types.net.PortNumber
 import eu.timepit.refined.auto._
+import eu.timepit.refined.types.net.PortNumber
 
 final case class ServerConfig(
   port: PortNumber

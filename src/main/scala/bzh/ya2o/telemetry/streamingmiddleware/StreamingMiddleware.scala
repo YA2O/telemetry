@@ -7,7 +7,6 @@ import cats.effect.Sync
 import cats.implicits._
 import fs2.concurrent.Topic
 import fs2.Stream
-
 import scala.{Stream => _}
 
 trait StreamingMiddlewarePublisher[F[_], A] {

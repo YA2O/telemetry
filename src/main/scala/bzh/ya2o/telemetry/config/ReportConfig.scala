@@ -7,7 +7,6 @@ import ciris.refined._
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.auto._
 import eu.timepit.refined.numeric._
-
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration.SECONDS
 

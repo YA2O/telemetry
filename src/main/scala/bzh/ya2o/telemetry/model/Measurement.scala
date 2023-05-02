@@ -1,7 +1,8 @@
-package bzh.ya2o.telemetry.model
+package bzh.ya2o.telemetry
+package model
 
 import bzh.ya2o.telemetry.model.Measurement._
-
+import cats.implicits.catsSyntaxValidatedId
 import java.time.Instant
 
 final case class Measurement(
@@ -12,37 +13,38 @@ final case class Measurement(
 )
 
 object Measurement {
-  sealed abstract case class DeviceId(value: String)
+  sealed abstract case class DeviceId private (value: String)
   object DeviceId {
-    def apply(value: String): Either[String, DeviceId] = {
+    def apply(value: String): Validated_[DeviceId] = {
       if (isValid(value))
-        Right(unsafeApply(value))
-      else Left(s"Invalid deviceId: [$value]!")
+        unsafeApply(value).valid
+      else s"Invalid deviceId: [$value]!".invalid
     }
     private def isValid(value: String): Boolean = value.nonEmpty
     private def unsafeApply(value: String): DeviceId = new DeviceId(value) {}
   }
 
-  sealed abstract case class Cpu(value: Float)
+  sealed abstract case class Cpu private (value: Float)
   object Cpu {
-    def apply(value: Float): Either[String, Cpu] = {
+    def apply(value: Float): Validated_[Cpu] = {
       if (isValid(value))
-        Right(unsafeApply(value))
-      else Left(s"Invalid cpu: [$value]!")
+        unsafeApply(value).valid
+      else s"invalid cpu: [$value]".invalid
     }
-    private def isValid(value: Float): Boolean = value >= 0 && value <= 100
+    private def isValid(value: Float): Boolean = value > 0 && value <= 100
     private def unsafeApply(value: Float): Cpu = new Cpu(value) {}
   }
 
-  sealed abstract case class ClientVersion(value: String)
+  sealed abstract case class ClientVersion private (value: String)
   object ClientVersion {
     private val regex = """^v([0-9-]+\.)+([0-9]*)$""".r
-    def apply(value: String): Either[String, ClientVersion] = {
+    def apply(value: String): Validated_[ClientVersion] = {
       if (isValid(value))
-        Right(unsafeApply(value))
-      else Left(s"Invalid clientVersion: [$value]!")
+        unsafeApply(value).valid
+      else s"invalid clientVersion: [$value]".invalid
     }
     private def isValid(value: String): Boolean = regex.matches(value)
     private def unsafeApply(value: String): ClientVersion = new ClientVersion(value) {}
   }
+
 }

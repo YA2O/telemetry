@@ -11,35 +11,48 @@ use the functional programing paradigm, to support better expressiveness, local 
 compositionality. The Typelevel ecosystem helps with this task.
 
 An important and complex issue with data pipelines is the need for backpressure, and handling data that
-potentially doesn't fit in memory. Like for concurrency, you'd better find a good lib to solve this problem
-instead of trying to reinvent the wheel. Fs2 to the rescue to solves this nicely!
+potentially doesn't fit in memory. Like for concurrency, you'd better find a good library to solve this 
+problem instead of trying to reinvent the wheel. Fs2 to the rescue to solves this nicely!
 
 ## Instructions
 
 Prerequisite: you need to have `sbt` installed on your computer.
+
 Usage of the program is simply done in the CLI:
 `sbt run`
-
-This will start a web server on port 8080, to which you can post telemetry messages like this:
-```
-curl -i -X POST 'http://localhost:8080/telemetry/cpu' \
-  -d '{"timestamp": "2020-01-01T00:00:00Z", "deviceId": "device-1234", "clientVersion": "v1.2.3", "cpu": 83.2}'
-```
-
-(Poor solution to send many requests:
-```
-while true; do curl -i -X POST 'http://localhost:8080/telemetry/cpu' \
--d '{"timestamp": "2020-01-01T00:00:00Z", "deviceId": "XXXX", "clientVersion": "v12.3.4", "cpu": 25}' ; done
-```
-)
+This will start a web server on port 8080.
 
 Every 10 s, a report will be generated, counting the number of messages received, and counting the number of
-messages with CPU in each of 10 divisions,i.e. division0 = [0, 10[ , division10 =  [10, 20[, etc.
+messages with CPU in each of 10 divisions, i.e. 
+```
+division0 = (0, 10]
+division10 = (10, 20]
+...
+division90 = (90, 100]
+```
+(note: we make the assumption that a CPU value must be strictly positive).
 
 If you want to specify another value for the periodicity at which the report is generated, run the program
 like e.g.:
 `sbt run -Dreport.periodSec=5`
 
+To post telemetry data, you can post requests messages like this with `curl`:
+```
+curl -#v 'http://localhost:8080/telemetry/cpu' --json '
+{
+  "timestamp": "2020-01-01T00:00:00Z",
+  "deviceId": "device-1234",
+  "clientVersion": "v1.2.3",
+  "cpu": 83.2
+}'
+```
+
+(Quick solution to send many (identical) requests:
+```
+while true; do curl -#i 'http://localhost:8080/telemetry/cpu' \
+--json '{"timestamp": "2020-01-01T00:00:00Z", "deviceId": "XXXX", "clientVersion": "v12.3.4", "cpu": 25}' ; done
+```
+)
 
 ## Notes
 
