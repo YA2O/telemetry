@@ -1,18 +1,18 @@
 package bzh.ya2o.telemetry
 package model
 
-import bzh.ya2o.telemetry.model.Measurement._
+import bzh.ya2o.telemetry.model.CpuMeasurement._
 import cats.implicits.catsSyntaxValidatedId
 import java.time.Instant
 
-final case class Measurement(
+final case class CpuMeasurement(
   deviceId: DeviceId,
   timestamp: Instant,
   clientVersion: ClientVersion,
   cpu: Cpu
 )
 
-object Measurement {
+object CpuMeasurement {
   sealed abstract case class DeviceId private (value: String)
   object DeviceId {
     def apply(value: String): Validated_[DeviceId] = {

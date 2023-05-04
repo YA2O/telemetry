@@ -1,7 +1,7 @@
 package bzh.ya2o.telemetry
-package streamingmiddleware
+package integration.broker
 
-import bzh.ya2o.telemetry.config.MiddlewareConfig
+import bzh.ya2o.telemetry.application.config.MiddlewareConfig
 import cats.effect.Async
 import cats.effect.Sync
 import cats.implicits._

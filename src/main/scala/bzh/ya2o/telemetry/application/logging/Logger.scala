@@ -1,5 +1,5 @@
 package bzh.ya2o.telemetry
-package logging
+package application.logging
 
 import cats.effect.Sync
 

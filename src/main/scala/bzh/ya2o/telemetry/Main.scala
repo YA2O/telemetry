@@ -1,13 +1,13 @@
 package bzh.ya2o.telemetry
 
-import bzh.ya2o.telemetry.config.Config
-import bzh.ya2o.telemetry.logging.LoggerImpl
-import bzh.ya2o.telemetry.model.Measurement
-import bzh.ya2o.telemetry.report.ReportServiceImpl
-import bzh.ya2o.telemetry.server.PublisherImpl
-import bzh.ya2o.telemetry.server.RoutesImpl
-import bzh.ya2o.telemetry.server.Server
-import bzh.ya2o.telemetry.streamingmiddleware.StreamingMiddlewareImpl
+import bzh.ya2o.telemetry.application.config.Config
+import bzh.ya2o.telemetry.application.logging.LoggerImpl
+import bzh.ya2o.telemetry.application.Server
+import bzh.ya2o.telemetry.integration.broker.PublisherImpl
+import bzh.ya2o.telemetry.integration.broker.StreamingMiddlewareImpl
+import bzh.ya2o.telemetry.integration.http.RoutesImpl
+import bzh.ya2o.telemetry.logic.ReportServiceImpl
+import bzh.ya2o.telemetry.model.CpuMeasurement
 import cats.effect.ExitCode
 import cats.effect.IO
 import cats.effect.IOApp
@@ -21,7 +21,7 @@ object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
     (for {
       config <- Stream.eval(Config.config[IO].load)
-      streamingMiddleware <- Stream.eval(StreamingMiddlewareImpl.make[IO, Measurement](config.middleware))
+      streamingMiddleware <- Stream.eval(StreamingMiddlewareImpl.make[IO, CpuMeasurement](config.middleware))
       _ <- {
         val publisher = new PublisherImpl[IO](streamingMiddleware, logger)
         val routes = new RoutesImpl[IO](publisher, logger)

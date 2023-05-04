@@ -1,4 +1,5 @@
-package bzh.ya2o.telemetry.error
+package bzh.ya2o.telemetry
+package application.error
 
 import scala.util.control.NoStackTrace
 

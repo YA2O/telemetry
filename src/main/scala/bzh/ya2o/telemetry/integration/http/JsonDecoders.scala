@@ -1,7 +1,8 @@
-package bzh.ya2o.telemetry.server
+package bzh.ya2o.telemetry
+package integration.http
 
-import bzh.ya2o.telemetry.model.Measurement
-import bzh.ya2o.telemetry.model.Measurement._
+import bzh.ya2o.telemetry.model.CpuMeasurement
+import bzh.ya2o.telemetry.model.CpuMeasurement._
 import io.circe.Decoder
 
 object JsonDecoders {
@@ -12,6 +13,6 @@ object JsonDecoders {
 
   implicit private val CpuDecoder: Decoder[Cpu] = Decoder[Float].emap(Cpu(_).toEither)
 
-  implicit val MeasurmentDecoder: Decoder[Measurement] =
-    Decoder.forProduct4("deviceId", "timestamp", "clientVersion", "cpu")(Measurement.apply)
+  implicit val MeasurmentDecoder: Decoder[CpuMeasurement] =
+    Decoder.forProduct4("deviceId", "timestamp", "clientVersion", "cpu")(CpuMeasurement.apply)
 }

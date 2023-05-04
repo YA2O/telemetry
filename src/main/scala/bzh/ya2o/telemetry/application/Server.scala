@@ -1,7 +1,8 @@
 package bzh.ya2o.telemetry
-package server
+package application
 
-import bzh.ya2o.telemetry.config.ServerConfig
+import bzh.ya2o.telemetry.application.config.ServerConfig
+import bzh.ya2o.telemetry.integration.http.Routes
 import cats.effect.Async
 import cats.effect.Resource
 import cats.syntax.all._

@@ -1,5 +1,5 @@
 package bzh.ya2o.telemetry
-package config
+package application.config
 
 import cats.implicits._
 import ciris._
