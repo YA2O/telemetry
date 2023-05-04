@@ -2,7 +2,6 @@ package bzh.ya2o.telemetry
 package server
 
 import bzh.ya2o.telemetry.config.ServerConfig
-import bzh.ya2o.telemetry.logging.Logger
 import cats.effect.Async
 import cats.effect.Resource
 import cats.syntax.all._
@@ -15,17 +14,14 @@ import org.http4s.HttpApp
 object Server {
 
   def resource[F[_]](
-    publisher: Publisher[F],
-    config: ServerConfig,
-    logger: Logger[F]
+    routes: Routes[F],
+    config: ServerConfig
   )(
     implicit F: Async[F]
   ): Resource[F, Unit] = {
-
-    val finalHttpApp: HttpApp[F] = {
-      val httpApp = Routes.publicRoutes(publisher, logger).orNotFound
-      Logger.httpApp(logHeaders = true, logBody = true)(httpApp)
-    }
+    val httpApp: HttpApp[F] = Logger.httpApp(logHeaders = true, logBody = true)(
+      routes.publicRoutes.orNotFound
+    )
 
     for {
       port <- Resource.pure(
@@ -37,7 +33,7 @@ object Server {
         EmberServerBuilder
           .default[F]
           .withPort(port)
-          .withHttpApp(finalHttpApp)
+          .withHttpApp(httpApp)
           .build >>
           Resource.eval[F, Unit](F.never)
       )

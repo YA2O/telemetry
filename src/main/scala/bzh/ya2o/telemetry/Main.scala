@@ -5,6 +5,7 @@ import bzh.ya2o.telemetry.logging.LoggerImpl
 import bzh.ya2o.telemetry.model.Measurement
 import bzh.ya2o.telemetry.report.ReportServiceImpl
 import bzh.ya2o.telemetry.server.PublisherImpl
+import bzh.ya2o.telemetry.server.RoutesImpl
 import bzh.ya2o.telemetry.server.Server
 import bzh.ya2o.telemetry.streamingmiddleware.StreamingMiddlewareImpl
 import cats.effect.ExitCode
@@ -23,9 +24,10 @@ object Main extends IOApp {
       streamingMiddleware <- Stream.eval(StreamingMiddlewareImpl.make[IO, Measurement](config.middleware))
       _ <- {
         val publisher = new PublisherImpl[IO](streamingMiddleware, logger)
+        val routes = new RoutesImpl[IO](publisher, logger)
         val reportService = new ReportServiceImpl[IO](config.report, logger)
         Stream(
-          Stream.resource(Server.resource[IO](publisher, config.server, logger)),
+          Stream.resource(Server.resource[IO](routes, config.server)),
           reportService.report(streamingMiddleware.subscribe())
         ).parJoinUnbounded
       }
