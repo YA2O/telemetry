@@ -8,6 +8,7 @@ val LogbackVersion = "1.2.5"
 val MunitVersion = "0.7.27"
 val MunitCatsEffectVersion = "1.0.5"
 
+// TODO compiler flags
 lazy val root = (project in file("."))
   .settings(
     organization := "bzh.ya2o",
@@ -21,7 +22,9 @@ lazy val root = (project in file("."))
       "org.http4s" %% "http4s-ember-client" % Http4sVersion,
       "org.http4s" %% "http4s-circe" % Http4sVersion,
       "org.http4s" %% "http4s-dsl" % Http4sVersion,
+      "io.circe" %% "circe-core" % CirceVersion,
       "io.circe" %% "circe-generic" % CirceVersion,
+      "io.circe" %% "circe-parser" % CirceVersion,
       "io.circe" %% "circe-refined" % CirceVersion,
       "eu.timepit" %% "refined" % RefinedVersion,
       "eu.timepit" %% "refined-cats" % RefinedVersion,
@@ -37,4 +40,6 @@ lazy val root = (project in file("."))
     testFrameworks += new TestFramework("munit.Framework")
   )
 
-addCommandAlias("validate", "clean; test; scalafmtCheck; scalafmtSbtCheck; doc")
+addCommandAlias("validate", "clean; cleanFiles; reload; update; test; scalafmtCheck; scalafmtSbtCheck; doc")
+addCommandAlias("dev", "test; scalafmtAll; scalafmtSbt")
+//addCommandAlias("noWarnings", "; set compile/logLevel := Level.Error")

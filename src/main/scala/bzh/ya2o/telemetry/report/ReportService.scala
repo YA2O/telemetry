@@ -48,7 +48,7 @@ object ReportService {
 
 }
 
-class ReportServiceImpl[F[_]](config: ReportConfig)(implicit F: Async[F], logger: Logger[F])
+class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit F: Async[F])
   extends ReportService[F] {
 
   case class Counter private (

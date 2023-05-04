@@ -12,10 +12,10 @@ trait Publisher[F[_]] {
 }
 
 class PublisherImpl[F[_]](
-  streaming: StreamingMiddlewarePublisher[F, Measurement]
-)(
-  implicit F: Sync[F],
+  streaming: StreamingMiddlewarePublisher[F, Measurement],
   logger: Logger[F]
+)(
+  implicit F: Sync[F]
 ) extends Publisher[F] {
 
   override def publish(data: Measurement): F[Unit] = {

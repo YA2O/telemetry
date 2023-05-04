@@ -1,7 +1,6 @@
 package bzh.ya2o.telemetry
 
 import bzh.ya2o.telemetry.config.Config
-import bzh.ya2o.telemetry.logging.Logger
 import bzh.ya2o.telemetry.logging.LoggerImpl
 import bzh.ya2o.telemetry.model.Measurement
 import bzh.ya2o.telemetry.report.ReportServiceImpl
@@ -15,17 +14,18 @@ import fs2.Stream
 import org.log4s.getLogger
 
 object Main extends IOApp {
-  implicit private val logger: Logger[IO] = new LoggerImpl[IO](getLogger)
+
+  private val logger = new LoggerImpl[IO](getLogger)
 
   def run(args: List[String]): IO[ExitCode] = {
     (for {
       config <- Stream.eval(Config.config[IO].load)
       streamingMiddleware <- Stream.eval(StreamingMiddlewareImpl.make[IO, Measurement](config.middleware))
       _ <- {
-        val publisher = new PublisherImpl[IO](streamingMiddleware)
-        val reportService = new ReportServiceImpl[IO](config.report)
+        val publisher = new PublisherImpl[IO](streamingMiddleware, logger)
+        val reportService = new ReportServiceImpl[IO](config.report, logger)
         Stream(
-          Stream.resource(Server.resource[IO](publisher, config.server)),
+          Stream.resource(Server.resource[IO](publisher, config.server, logger)),
           reportService.report(streamingMiddleware.subscribe())
         ).parJoinUnbounded
       }

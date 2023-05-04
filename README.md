@@ -82,7 +82,6 @@ for performance reasons.
 ## To do
 
 * dockerize it!
-* authorization in the endpoint.
 * make it configurable to divide the CPU values in more or less divisions than the actual 10.
 * add tests. ScalaCheck generators...
 * create a simulator that can generate randomized inputs and query our server.
@@ -100,4 +99,4 @@ there exists a driver/connector for fs2.
   3. be recursive: our consumer would send events containing the small reports data to a new topic, and then
 another consumer (on this new topic) would create the "big" reports.
 * Have a client to present the reports as graphs.
-* API documentation. Swagger maybe? Maybe overkill for one single and simple endpoint...
+* API documentation. OpenAPI maybe? A bit overkill though, for one single and simple endpoint...
