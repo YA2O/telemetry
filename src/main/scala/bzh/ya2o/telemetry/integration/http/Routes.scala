@@ -28,16 +28,16 @@ class RoutesImpl[F[_]](publisher: Publisher[F], logger: Logger[F])(implicit F: A
   import dsl._
 
   override def publicRoutes: HttpRoutes[F] = {
-    val jsonRoutes: PartialFunction[Request[F], Json => F[Response[F]]] = {
-      case _ @POST -> Root / "telemetry" / "cpu" => postCpuMeasurement
+    val jsonRoutes: PartialFunction[Request[F], (Request[F], Json => F[Response[F]])] = {
+      case req @ POST -> Root / "telemetry" / "cpu" => req -> createCpuMeasurement
     }
 
-    HttpRoutes.of[F] { req =>
-      req.decodeStrict[Json](jsonRoutes(req)(_)) |> handleErrors
-    }
+    HttpRoutes.of[F](jsonRoutes.map { case (req, f) =>
+      req.decodeStrict[Json](f) |> handleErrors
+    })
   }
 
-  private[this] def postCpuMeasurement(json: Json): F[Response[F]] = {
+  private[this] val createCpuMeasurement: Json => F[Response[F]] = { json =>
     def parseCpuMeasurement(json: Json): Validated_[CpuMeasurement] = {
       decodeAccumulating[CpuMeasurement](json.toString())
         .leftMap(_.map(_.getMessage))
