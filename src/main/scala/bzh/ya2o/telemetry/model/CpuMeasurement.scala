@@ -31,7 +31,7 @@ object CpuMeasurement {
         unsafeApply(value).valid
       else s"invalid cpu: [$value]".invalid
     }
-    private def isValid(value: Float): Boolean = value > 0 && value <= 100
+    private def isValid(value: Float): Boolean = value >= 0 && value <= 100
     private def unsafeApply(value: Float): Cpu = new Cpu(value) {}
   }
 

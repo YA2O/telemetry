@@ -59,11 +59,12 @@ class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit 
   override def report(input: Stream[F, CpuMeasurement]): Stream[F, Report] = {
 
     def computeDecimalDivision(f: Float): Int = {
-      // Compute in which "division" a value belongs, i.e. 0 < division0 ≤ 10 < division10 ≤ 20 < division20, etc.
-      (Math.ceil(f.toDouble / 10).toInt - 1) * 10
+      // Compute in which "division" a value belongs, i.e. 0 <= division0 ≤ 10 < division10 ≤ 20 < division20, etc.
+      if (f == 0) 0
+      else ((Math.ceil(f.toDouble / 10).toInt - 1) * 10)
     }
 
-    def updateCounters(
+    def count(
       input: Stream[F, CpuMeasurement],
       counters: Ref[F, Map[ClientVersion, Counter]]
     ): Stream[F, CpuMeasurement] = {
@@ -114,7 +115,7 @@ class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit 
 
     for {
       counters <- Stream.eval(Ref[F].of(Map.empty[ClientVersion, Counter]))
-      report <- reportAndResetCounters(counters) concurrently updateCounters(input, counters)
+      report <- reportAndResetCounters(counters) concurrently count(input, counters)
       _ <- Stream.eval(logger.info(s"${report.asJson.spaces2}"))
     } yield report
 
