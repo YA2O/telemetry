@@ -47,7 +47,7 @@ class RoutesImpl[F[_]](publisher: Publisher[F], logger: Logger[F])(implicit F: A
 
     logger.debug(s"Received JSON request: [$json]") >>
       (for {
-        measurement <- (parseCpuMeasurement(json).leftMap(YourClientBadRequestError)) |> F.fromValidated
+        measurement <- parseCpuMeasurement(json).leftMap(YourClientBadRequestError) |> F.fromValidated
         _ <- publisher.publish(measurement)
         resp <- Accepted()
       } yield resp)

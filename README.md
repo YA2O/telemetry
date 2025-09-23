@@ -25,10 +25,10 @@ This will start a web server on port 8080.
 Every 10 s, a report will be generated, counting the number of messages received, and counting the number of
 messages with CPU in each of 10 divisions, i.e. 
 ```
-division0 = [0, 10]
-division10 = (10, 20]
+division0 = [0, 10)
+division10 = [10, 20)
 ...
-division90 = (90, 100]
+division90 = [90, 100]
 ```
 (note: we make the assumption that a CPU value must be strictly positive).
 
