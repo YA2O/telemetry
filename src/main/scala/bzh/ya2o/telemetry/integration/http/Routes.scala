@@ -4,8 +4,8 @@ package integration.http
 import bzh.ya2o.telemetry.application.error.CustomError
 import bzh.ya2o.telemetry.application.error.CustomError.YourClientBadRequestError
 import bzh.ya2o.telemetry.application.logging.Logger
-import bzh.ya2o.telemetry.integration.broker.Publisher
-import bzh.ya2o.telemetry.integration.http.JsonDecoders._
+import bzh.ya2o.telemetry.integration.json.JsonDecoders._
+import bzh.ya2o.telemetry.integration.messaging.Publisher
 import bzh.ya2o.telemetry.model.CpuMeasurement
 import bzh.ya2o.telemetry.Validated_
 import cats.effect.Async
@@ -57,8 +57,9 @@ class RoutesImpl[F[_]](publisher: Publisher[F], logger: Logger[F])(implicit F: A
     def errorToResponse(error: Throwable): F[Response[F]] = error match {
       case err: CustomError => {
         err match {
-          case YourClientBadRequestError(message) =>
-            BadRequest.apply(message)
+          case YourClientBadRequestError(message) => BadRequest.apply(message)
+          case CustomError.OurInternalError(_) => ???
+          case CustomError.TheirServerError(_) => ???
         }
       }
       case err =>

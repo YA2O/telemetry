@@ -62,7 +62,7 @@ class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit 
       // Compute in which "division" a value belongs, i.e. 0 <= division0 < 10 ≤  division10 < 20 ≤ division20 ... < 90 ≤ division90 ≤ 100
       if (f == 100) 90
       else if (f % 10 == 0) f.toInt
-      else ((Math.ceil(f.toDouble / 10).toInt -1) * 10)
+      else ((Math.ceil(f.toDouble / 10).toInt - 1) * 10)
     }
 
     def count(

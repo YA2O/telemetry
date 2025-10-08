@@ -19,6 +19,12 @@ problem instead of trying to reinvent the wheel. Fs2 to the rescue to solves thi
 Prerequisite: you need to have `sbt` installed on your computer.
 
 Usage of the program is simply done in the CLI:
+
+First, start RabbitMQ:
+`docker compose down -v
+docker compose up -d`
+
+then, start the program:
 `sbt run`
 This will start a web server on port 8080.
 

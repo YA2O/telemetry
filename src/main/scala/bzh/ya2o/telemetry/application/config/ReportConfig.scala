@@ -16,7 +16,6 @@ final case class ReportConfig(
 
 object ReportConfig {
   type PositiveLong = Long Refined Positive
-  type PositiveInt = Int Refined Positive
 
   def config[F[_]]: ConfigValue[F, ReportConfig] =
     prop("report.periodSec").as[PositiveLong].default(10L).map { period =>

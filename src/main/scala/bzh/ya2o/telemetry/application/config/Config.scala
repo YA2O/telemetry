@@ -6,14 +6,14 @@ import ciris.ConfigValue
 
 final case class Config(
   server: ServerConfig,
-  middleware: MiddlewareConfig,
+  messaging: MessagingConfig,
   report: ReportConfig
 )
 
 object Config {
   def config[F[_]]: ConfigValue[F, Config] = (
     ServerConfig.config,
-    MiddlewareConfig.config,
+    MessagingConfig.config,
     ReportConfig.config
   ).parMapN(Config.apply)
 }
