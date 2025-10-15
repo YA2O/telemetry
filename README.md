@@ -36,7 +36,7 @@ With Docker compose:
 ```
 docker compose down -v
 docker compose build --no-cache
-docker compose up -d
+docker compose up --scale web_api=3 -d
 ```
 
 To see the output of the report service:
@@ -103,6 +103,7 @@ for performance reasons.
 
 ## To do
 
+* Scaling out the server; use Kubernetes.
 * Fix the environment variable handling. I don't like the current hard-coded solution.
 * Make it configurable to divide the CPU values in more or less divisions than the actual 10.
 * Add tests. ScalaCheck generators...

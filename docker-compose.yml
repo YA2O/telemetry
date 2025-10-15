@@ -1,7 +1,7 @@
 services:
   rabbitmq:
-    image: rabbitmq:3-management
     container_name: rabbitmq
+    image: rabbitmq:3-management
     ports:
       # AMQP port
       - "5672:5672"
@@ -20,22 +20,32 @@ services:
       retries: 12
       start_period: 10s
 
-  web-api:
+  web_api:
     image: telemetry-web-api:0.0.1-SNAPSHOT
-    container_name: web_api
     depends_on:
       rabbitmq:
         condition: service_healthy
     environment:
       RABBITMQ_HOST: rabbitmq
-    # Use a different host port to avoid BindException
-    ports:
-      - "8080:8080"   # change container port if needed
+#    ports:
+#      - "8080:8080"   # change container port if needed
+    expose:
+      - "8080"
     restart: unless-stopped
 
-  report-service:
-    image: telemetry-report-service:0.0.1-SNAPSHOT
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      - web_api
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
+  report_service:
     container_name: report_service
+    image: telemetry-report-service:0.0.1-SNAPSHOT
     depends_on:
       - rabbitmq
     environment:
