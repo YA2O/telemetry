@@ -13,6 +13,37 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  web-api:
+    image: telemetry-web-api:0.0.1-SNAPSHOT
+    container_name: web_api
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: rabbitmq
+    # Use a different host port to avoid BindException
+    ports:
+      - "8080:8080"   # change container port if needed
+    restart: unless-stopped
+
+  report-service:
+    image: telemetry-report-service:0.0.1-SNAPSHOT
+    container_name: report_service
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+    # If you want to access the service from the host, map to a unique host port
+    ports:
+      - "8081:8080"   # change container port if your app listens on another port
+    restart: unless-stopped
 
 volumes:
   rabbitmq_data:

@@ -18,15 +18,31 @@ problem instead of trying to reinvent the wheel. Fs2 to the rescue to solves thi
 
 Prerequisite: you need to have `sbt` installed on your computer.
 
-Usage of the program is simply done in the CLI:
+Usage of the program is done in the CLI.
 
-First, start RabbitMQ:
-`docker compose down -v
-docker compose up -d`
+First, publish the Docker images:
+```
+cd web-api
+sbt docker:publishLocal
+cd ..
+```
+```
+cd report-service
+sbt docker:publishLocal
+cd ..
+ ```
 
-then, start the program:
-`sbt run`
-This will start a web server on port 8080.
+With Docker compose:
+```
+docker compose down -v
+docker compose build --no-cache
+docker compose up -d
+```
+
+To see the output of the report service:
+```
+docker logs -f report_service
+```
 
 Every 10 s, a report will be generated, counting the number of messages received, and counting the number of
 messages with CPU in each of 10 divisions, i.e. 
@@ -44,7 +60,7 @@ like e.g.:
 
 To post telemetry data, you can post requests messages like this with `curl`:
 ```
-curl -#v 'http://localhost:8080/telemetry/cpu' --json '
+curl -v 'http://localhost:8080/telemetry/cpu' --json '
 {
   "timestamp": "2020-01-01T00:00:00Z",
   "deviceId": "device-1234",
@@ -87,19 +103,19 @@ for performance reasons.
 
 ## To do
 
-* dockerize it!
-* make it configurable to divide the CPU values in more or less divisions than the actual 10.
-* add tests. ScalaCheck generators...
-* create a simulator that can generate randomized inputs and query our server.
-* add more categories in telemetry messages, e.g.info about OS, hardware, etc. to get better understanding for
+* Fix the environment variable handling. I don't like the current hard-coded solution.
+* Make it configurable to divide the CPU values in more or less divisions than the actual 10.
+* Add tests. ScalaCheck generators...
+* Create a simulator that can generate randomized inputs and query our server.
+* Add more categories in telemetry messages, e.g.info about OS, hardware, etc. to get better understanding for
 the correlations between categories and high CPU usage.
-* persistence of reports for later usage, or maybe for aggregating a "bigger" report (on a longer period), that
+* Persistence of reports for later usage, or maybe for aggregating a "bigger" report (on a longer period), that
 would be generated e.g. once a day. I am not sure which Database to use here, and we would need to investigate
 the usual tradeoffs for combining scaling, consistency and availibilty. Another point is that we are bounded
 to choose a database that we can integrate nicely with fs2. At first sight, I'd say that eventual consistency
 is good enough, and Cassandra would be a nice match. We could have a look at Riak and CouchDB too, in case
 there exists a driver/connector for fs2.
-* if we need a "bigger" aggregated report on a longer period, we could:
+* If we need a "bigger" aggregated report on a longer period, we could:
   1. do as stated above, and persist small reports that we then create the big report from.
   2. have a second consumer on the same topic.
   3. be recursive: our consumer would send events containing the small reports data to a new topic, and then

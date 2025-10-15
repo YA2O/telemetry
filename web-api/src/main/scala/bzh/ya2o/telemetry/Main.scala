@@ -1,0 +1,43 @@
+package bzh.ya2o.telemetry
+
+import bzh.ya2o.telemetry.application.config.Config
+import bzh.ya2o.telemetry.application.logging.LoggerImpl
+import bzh.ya2o.telemetry.application.Server
+import bzh.ya2o.telemetry.integration.http.RoutesImpl
+import bzh.ya2o.telemetry.integration.json.JsonEncoders._
+import bzh.ya2o.telemetry.integration.messaging.rabbitmq.MessagingRabbitMq
+import bzh.ya2o.telemetry.integration.messaging.PublisherImpl
+import cats.effect.kernel.Outcome
+import cats.effect.ExitCode
+import cats.effect.IO
+import cats.effect.IOApp
+import org.log4s.getLogger
+
+object Main extends IOApp {
+
+  def run(args: List[String]): IO[ExitCode] = {
+    val logger = new LoggerImpl[IO](getLogger)
+
+    val appResource =
+      for {
+        config <- Config.config[IO].resource
+        messaging <- MessagingRabbitMq.make(config.messaging, logger)
+        routes = {
+          val publisher = new PublisherImpl[IO](messaging, logger)
+          new RoutesImpl[IO](publisher, logger)
+        }
+        _ <- Server.resource[IO](routes, config.server, logger)
+      } yield ()
+
+    appResource.useForever
+      .handleErrorWith { e =>
+        logger.error(s"Fatal error: ${e.getMessage}") >> IO.pure(ExitCode.Error)
+      }
+      .guaranteeCase {
+        case Outcome.Succeeded(_) => logger.info("Application exited normally")
+        case Outcome.Canceled() => logger.info("Application canceled gracefully") *> IO(System.out.flush())
+        case Outcome.Errored(e) => logger.error(s"Application failed: ${e.getMessage}")
+      }
+      .as(ExitCode.Success)
+  }
+}
