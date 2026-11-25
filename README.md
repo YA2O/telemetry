@@ -97,16 +97,23 @@ curl localhost:8081/knob/delay
 At 50 ms per message it handles at most 20 messages/s, so with the simulator at 100/s the "Ready" count in
 RabbitMQ grows. Set it back to 0 and the queue drains.
 
-### Pipeline stats
+### Live events
 
-Every second, the report service publishes what happened in the last second as Server-Sent Events:
+The report service publishes 2 kinds of Server-Sent Events. A new reader first gets the latest of each, then
+every new one:
 ```
 curl -N localhost:8081/dashboard/events
 ```
 ```
-event: stats
 data: {"processedPerSec":20,"delayAvgMillis":8150,"delayMaxMillis":8900,"queue":{"ready":693,"unacked":50},"knobDelayMillis":50}
+event: stats
+
+data: {"timestamp":"2026-11-25T12:00:00Z","period":"10 seconds","counters":[{"clientVersion":"v1.0.0","count":3,"countPerDivision":{"0":1,"10":2}}]}
+event: report
 ```
+`report` events carry each CPU report, the same JSON as in the logs, every `report.periodSec`.
+
+`stats` events come every second, with what happened in the last second:
 - `processedPerSec`: messages counted in the last second.
 - `delayAvgMillis`, `delayMaxMillis`: time between a measurement's `timestamp` and the moment it was counted.
 - `queue`: Ready and Unacked messages, read from RabbitMQ's management API (port `messaging.managementPort`,
