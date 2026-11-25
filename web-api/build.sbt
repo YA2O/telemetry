@@ -20,6 +20,7 @@ lazy val root = (project in file("."))
     scalaVersion := "2.13.6",
     scalacOptions -= "-Xfatal-warnings", // disable fatal warnings
     Compile / mainClass := Some("bzh.ya2o.telemetry.Main"),
+    dockerBaseImage := "eclipse-temurin:17-jre",
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-effect" % "3.6.3",
       "io.circe" %% "circe-yaml" % CirceYamlVersion,
