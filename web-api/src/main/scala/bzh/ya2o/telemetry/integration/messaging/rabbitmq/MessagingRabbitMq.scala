@@ -26,7 +26,7 @@ class MessagingRabbitMq[F[_], A: Encoder](
 ) extends MessagingPublisher[F, A] {
 
   override def publish(a: A): F[Unit] = {
-    F.delay(logger.debug(s"Publishing $a to RabbitMQ")) >> pub(a.asJson.deepDropNullValues.noSpaces)
+    logger.debug(s"Publishing $a to RabbitMQ") >> pub(a.asJson.deepDropNullValues.noSpaces)
   }
 
 }
