@@ -14,6 +14,77 @@ An important and complex issue with data pipelines is the need for backpressure,
 potentially doesn't fit in memory. Like for concurrency, you'd better find a good library to solve this 
 problem instead of trying to reinvent the wheel. Fs2 to the rescue to solves this nicely!
 
+## Architecture
+
+### System context
+
+```mermaid
+flowchart LR
+    client["Telemetry clients<br/>(devices, curl, simulator)"]
+    browser["Browser<br/>(dashboard)"]
+
+    subgraph stack["docker compose"]
+        nginx["nginx<br/>port 8080"]
+        webApi["web-api<br/>(1 or more instances)"]
+        rabbit[("RabbitMQ<br/>telemetry.exchange → telemetry.queue<br/>management UI on port 15672")]
+        report["report-service<br/>port 8081"]
+    end
+
+    logs["docker logs report_service"]
+
+    client -- "POST /telemetry/cpu (JSON)" --> nginx
+    nginx -- "proxies to" --> webApi
+    webApi -- "publishes each measurement (AMQP)" --> rabbit
+    rabbit -- "delivers measurements, at most 50 unacknowledged (AMQP)" --> report
+    report -- "reads queue depth every 1 s (management HTTP API)" --> rabbit
+    browser -- "GET /dashboard<br/>GET /dashboard/events (Server-Sent Events)<br/>PUT /knob/delay" --> report
+    report -- "1 CPU report every report.periodSec" --> logs
+```
+
+### Sequence
+
+1 measurement, from the client to the reports and the dashboard:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant N as nginx
+    participant W as web-api
+    participant Q as RabbitMQ
+    participant R as report-service
+    participant B as Browser (dashboard)
+
+    C->>N: POST /telemetry/cpu
+    N->>W: POST /telemetry/cpu
+    alt JSON is not a valid CPU measurement
+        W-->>N: 400 Bad Request
+    else valid
+        W->>Q: publish measurement
+        W-->>N: 202 Accepted
+    end
+    N-->>C: response
+
+    Q->>R: deliver measurement
+    Note over R: wait for the slow-down knob delay (default 0 ms)
+    Note over R: count it per client version and CPU division,<br/>and record its delay since `timestamp`
+    R->>Q: acknowledge
+
+    loop every 1 s
+        R->>Q: GET /api/queues/%2F/telemetry.queue (timeout 800 ms)
+        Q-->>R: Ready and Unacked counts
+        R-->>B: event "stats"
+    end
+
+    loop every report.periodSec (default 10 s)
+        Note over R: build the report, reset the counters, log the report
+        R-->>B: event "report"
+    end
+```
+
+The web API answers `202 Accepted` as soon as the measurement is published: counting happens later, in the
+report service. A message that the report service cannot decode is rejected and not requeued.
+
 ## Instructions
 
 Prerequisite: you need to have `sbt` installed on your computer.
