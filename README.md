@@ -171,10 +171,12 @@ for performance reasons.
 ## To do
 
 * Scaling out the server; use Kubernetes.
-* Fix the environment variable handling. I don't like the current hard-coded solution.
+* Fix the environment variable handling. Only `RABBITMQ_HOST` is read from the environment; the other
+messaging settings are still system properties.
+* Hold the RabbitMQ password in a secret type instead of a plain string, so it cannot end up in a log.
 * Make it configurable to divide the CPU values in more or less divisions than the actual 10.
-* Add tests. ScalaCheck generators...
-* Create a simulator that can generate randomized inputs and query our server.
+* Add tests for the web API, and property-based tests with ScalaCheck generators (ScalaCheck is declared in
+`build.sbt` but not used yet).
 * Add more categories in telemetry messages, e.g.info about OS, hardware, etc. to get better understanding for
 the correlations between categories and high CPU usage.
 * Persistence of reports for later usage, or maybe for aggregating a "bigger" report (on a longer period), that
@@ -188,5 +190,5 @@ there exists a driver/connector for fs2.
   2. have a second consumer on the same topic.
   3. be recursive: our consumer would send events containing the small reports data to a new topic, and then
 another consumer (on this new topic) would create the "big" reports.
-* Have a client to present the reports as graphs.
+* Show the reports as graphs over time on the dashboard; today it shows only the latest report.
 * API documentation. OpenAPI maybe? A bit overkill though, for one single and simple endpoint...
