@@ -45,7 +45,7 @@ class MessagingRabbitMq[F[_], A: Encoder: Decoder](
   with MessagingSubscriber[F, A] {
 
   override def publish(a: A): F[Unit] = {
-    F.delay(logger.debug(s"Publishing $a to RabbitMQ")) >> pub(a.asJson.deepDropNullValues.noSpaces)
+    logger.debug(s"Publishing $a to RabbitMQ") >> pub(a.asJson.deepDropNullValues.noSpaces)
   }
 
   override def subscribe(): Stream[F, Delivery[F, A]] = {
