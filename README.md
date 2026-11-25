@@ -20,17 +20,13 @@ Prerequisite: you need to have `sbt` installed on your computer.
 
 Usage of the program is done in the CLI.
 
-First, publish the Docker images:
+The build has 3 sbt projects, run from the repository root: `common` (code shared by both services),
+`webApi` (folder `web-api`) and `reportService` (folder `report-service`).
+
+First, publish the Docker images, from the repository root:
 ```
-cd web-api
-sbt docker:publishLocal
-cd ..
+sbt webApi/docker:publishLocal reportService/docker:publishLocal
 ```
-```
-cd report-service
-sbt docker:publishLocal
-cd ..
- ```
 
 With Docker compose:
 ```
@@ -56,7 +52,7 @@ division90 = [90, 100]
 
 If you want to specify another value for the periodicity at which the report is generated, run the program
 like e.g.:
-`sbt run -Dreport.periodSec=5`
+`sbt -Dreport.periodSec=5 reportService/run`
 
 To post telemetry data, you can post requests messages like this with `curl`:
 ```
