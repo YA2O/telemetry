@@ -18,7 +18,8 @@ class MessagingInMemory[F[_], A](topic: Topic[F, A], config: MessagingConfig)(im
     case Right(_) => F.unit
   }
 
-  override def subscribe(): Stream[F, A] = topic.subscribe(config.maxQueued.value)
+  override def subscribe(): Stream[F, Delivery[F, A]] =
+    topic.subscribe(config.maxQueued.value).map(Delivery(_, F.unit))
 }
 
 object MessagingInMemory {

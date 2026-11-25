@@ -42,9 +42,9 @@ object MessagingRabbitMq {
 
     val rabbitConfig = Fs2RabbitConfig(
       virtualHost = "/",
-      host = "host.docker.internal", // TODO: use localhost for local dev
-      username = Some("admin"),
-      password = Some("admin"),
+      host = config.host.value,
+      username = Some(config.userName.value),
+      password = Some(config.password.value),
       port = config.portNumber.value,
       ssl = false,
       connectionTimeout = 3.seconds,
@@ -54,9 +54,9 @@ object MessagingRabbitMq {
       internalQueueSize = Some(config.maxQueued.value)
     )
 
-    val exchangeName = ExchangeName(config.publisher.exchangeName.value)
-    val routingKey = RoutingKey(config.publisher.routingKey.value)
-    val queueName = QueueName(config.subscriber.queueName.value)
+    val exchangeName = ExchangeName(config.exchangeName.value)
+    val routingKey = RoutingKey(config.routingKey.value)
+    val queueName = QueueName(config.queueName.value)
 
     for {
       dispatcher <- Dispatcher.parallel[F]

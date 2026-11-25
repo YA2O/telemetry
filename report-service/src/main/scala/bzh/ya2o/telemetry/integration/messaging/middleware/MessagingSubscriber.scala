@@ -5,5 +5,5 @@ import fs2.Stream
 import scala.{Stream => _}
 
 trait MessagingSubscriber[F[_], A] {
-  def subscribe(): Stream[F, A]
+  def subscribe(): Stream[F, Delivery[F, A]]
 }
