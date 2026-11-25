@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telemetry pipeline</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --border: #8884;
+      --muted: #888;
+      --warn: #c60;
+      --ok: #2a7;
+    }
+    body {
+      font: 15px/1.4 system-ui, sans-serif;
+      margin: 2rem auto;
+      max-width: 60rem;
+      padding: 0 1rem;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+    h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
+    .status { color: var(--muted); font-size: .9rem; }
+    .status.live::before { content: "● "; color: var(--ok); }
+    .status.down::before { content: "● "; color: var(--warn); }
+    table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+    th, td { border-bottom: 1px solid var(--border); padding: .35rem .6rem; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    thead th { color: var(--muted); font-weight: 600; }
+    tfoot td { font-weight: 600; }
+    .growing { color: var(--warn); font-weight: 600; }
+    .knob { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .knob input { flex: 1; min-width: 12rem; }
+    .knob output { min-width: 5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .hint { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
+    .error { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <h1>Telemetry pipeline</h1>
+  <div id="status" class="status down" role="status">Connecting…</div>
+
+  <h2>Slow-down knob</h2>
+  <div class="knob">
+    <label for="knob">Delay per message</label>
+    <input id="knob" type="range" min="0" max="200" step="10" value="0">
+    <output id="knob-value" for="knob">0 ms</output>
+  </div>
+  <div class="hint">
+    The report service waits this long on each message before counting it.
+    <span id="knob-capacity">At 0 ms it is not slowed down.</span>
+  </div>
+  <div id="knob-error" class="error" role="alert"></div>
+
+  <h2>Last second</h2>
+  <table>
+    <tbody>
+      <tr><td>Messages processed</td><td id="processed">–</td></tr>
+      <tr><td>Delay, average</td><td id="delay-avg">–</td></tr>
+      <tr><td>Delay, maximum</td><td id="delay-max">–</td></tr>
+      <tr><td>Waiting in RabbitMQ (Ready)</td><td id="ready">–</td></tr>
+      <tr><td>Delivered, not yet acknowledged (Unacked)</td><td id="unacked">–</td></tr>
+    </tbody>
+  </table>
+  <div class="hint">Delay: time between a measurement's timestamp and the moment it was counted.</div>
+
+  <h2>CPU report</h2>
+  <div id="report-time" class="hint">Waiting for the first report…</div>
+  <table id="report">
+    <thead></thead>
+    <tbody></tbody>
+    <tfoot></tfoot>
+  </table>
+
+  <script>
+    "use strict";
+
+    const DIVISIONS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+    const byId = (id) => document.getElementById(id);
+    const number = (n) => n.toLocaleString("en");
+    const millis = (ms) => ms < 1000 ? `${number(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
+
+    // --- Live events -------------------------------------------------------------------------
+
+    let previousReady = null;
+
+    function showStats(stats) {
+      byId("processed").textContent = `${number(stats.processedPerSec)} /s`;
+      byId("delay-avg").textContent = millis(stats.delayAvgMillis);
+      byId("delay-max").textContent = millis(stats.delayMaxMillis);
+
+      const ready = byId("ready");
+      if (stats.queue === null) {
+        ready.textContent = "n/a";
+        byId("unacked").textContent = "n/a";
+        ready.classList.remove("growing");
+        previousReady = null;
+      } else {
+        const growing = previousReady !== null && stats.queue.ready > previousReady;
+        ready.textContent = number(stats.queue.ready) + (growing ? " ▲" : "");
+        ready.classList.toggle("growing", growing);
+        byId("unacked").textContent = number(stats.queue.unacked);
+        previousReady = stats.queue.ready;
+      }
+
+      if (!knobBeingMoved) {
+        showKnob(stats.knobDelayMillis);
+      }
+    }
+
+    function showReport(report) {
+      const versions = report.counters.map((c) => c.clientVersion).sort();
+      const countOf = (version, division) => {
+        const counter = report.counters.find((c) => c.clientVersion === version);
+        return (counter && counter.countPerDivision[String(division)]) || 0;
+      };
+
+      const table = byId("report");
+      table.tHead.innerHTML = "";
+      table.tBodies[0].innerHTML = "";
+      table.tFoot.innerHTML = "";
+
+      const head = table.tHead.insertRow();
+      ["CPU %", ...versions, "All"].forEach((label) => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        head.appendChild(th);
+      });
+
+      DIVISIONS.forEach((division) => {
+        const row = table.tBodies[0].insertRow();
+        row.insertCell().textContent = division === 90 ? "90–100" : `${division}–${division + 10}`;
+        const counts = versions.map((v) => countOf(v, division));
+        counts.forEach((c) => (row.insertCell().textContent = number(c)));
+        row.insertCell().textContent = number(counts.reduce((a, b) => a + b, 0));
+      });
+
+      const total = table.tFoot.insertRow();
+      total.insertCell().textContent = "Total";
+      const totals = versions.map((v) => report.counters.find((c) => c.clientVersion === v).count);
+      totals.forEach((t) => (total.insertCell().textContent = number(t)));
+      total.insertCell().textContent = number(totals.reduce((a, b) => a + b, 0));
+
+      const time = new Date(report.timestamp).toLocaleTimeString("en-GB");
+      byId("report-time").textContent = `Report of the ${report.period} up to ${time}.`;
+    }
+
+    function connect() {
+      const events = new EventSource("/dashboard/events");
+      const status = byId("status");
+      events.onopen = () => {
+        status.textContent = "Live";
+        status.className = "status live";
+      };
+      events.onerror = () => {
+        status.textContent = "Connection lost, reconnecting…";
+        status.className = "status down";
+      };
+      events.addEventListener("stats", (e) => showStats(JSON.parse(e.data)));
+      events.addEventListener("report", (e) => showReport(JSON.parse(e.data)));
+    }
+
+    // --- Knob ----------------------------------------------------------------------------------
+
+    let knobBeingMoved = false;
+    const knob = byId("knob");
+
+    function showKnob(ms) {
+      knob.value = ms;
+      byId("knob-value").textContent = `${ms} ms`;
+      byId("knob-capacity").textContent = ms === 0
+        ? "At 0 ms it is not slowed down."
+        : `At ${ms} ms it handles at most ${number(Math.floor(1000 / ms))} messages/s, and falls behind any higher incoming rate.`;
+    }
+
+    async function setKnob(ms) {
+      byId("knob-error").textContent = "";
+      try {
+        const response = await fetch("/knob/delay", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ millis: ms }),
+        });
+        if (!response.ok) {
+          throw new Error(`${response.status} ${await response.text()}`);
+        }
+      } catch (error) {
+        byId("knob-error").textContent = `Could not set the knob: ${error.message}`;
+      }
+    }
+
+    knob.addEventListener("input", () => {
+      knobBeingMoved = true;
+      showKnob(Number(knob.value));
+    });
+    knob.addEventListener("change", async () => {
+      await setKnob(Number(knob.value));
+      knobBeingMoved = false;
+    });
+
+    connect();
+  </script>
+</body>
+</html>

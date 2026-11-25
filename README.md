@@ -86,6 +86,18 @@ load, the backlog therefore stays in RabbitMQ, visible as "Ready" messages in th
 http://localhost:15672 (user `admin`, password `admin`). A message that cannot be decoded is logged and
 rejected; it is not requeued.
 
+### Dashboard
+
+Open http://localhost:8081/dashboard to watch the pipeline live: what happened in the last second (messages
+processed, delay, messages waiting in RabbitMQ), the latest CPU report, and a slider for the slow-down knob.
+
+To watch backpressure happen:
+1. Start the stack and the simulator: `sbt -Dsimulator.ratePerSec=100 simulator/run`.
+2. Open the dashboard: about 100 messages/s are processed and nothing waits in RabbitMQ.
+3. Move the slider to 50 ms: the report service now handles about 20 messages/s, so "Waiting in RabbitMQ"
+   grows by about 80 each second (shown in orange with ▲) and the delay grows.
+4. Move it back to 0: the queue drains within seconds.
+
 ### Slow-down knob
 
 To see a backlog build up, slow the report service down while it runs. It waits this long on each message
