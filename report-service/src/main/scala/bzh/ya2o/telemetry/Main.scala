@@ -13,6 +13,7 @@ import bzh.ya2o.telemetry.integration.messaging.SubscriberImpl
 import bzh.ya2o.telemetry.logic.PipelineStats
 import bzh.ya2o.telemetry.logic.PipelineStatsService
 import bzh.ya2o.telemetry.logic.ProcessingDelay
+import bzh.ya2o.telemetry.logic.ReportService.Report
 import bzh.ya2o.telemetry.logic.ReportServiceImpl
 import bzh.ya2o.telemetry.logic.TickStats
 import cats.effect.kernel.Outcome
@@ -41,7 +42,8 @@ object Main extends IOApp {
         processingDelay <- Resource.eval(Ref[IO].of(ProcessingDelay.None))
         tickStats <- Resource.eval(Ref[IO].of(TickStats.Empty))
         latestStats <- Resource.eval(SignallingRef[IO].of(Option.empty[PipelineStats]))
-        routes = new RoutesImpl[IO](processingDelay, latestStats)
+        latestReport <- Resource.eval(SignallingRef[IO].of(Option.empty[Report]))
+        routes = new RoutesImpl[IO](processingDelay, latestStats, latestReport)
         subscriber = new SubscriberImpl[IO](messaging)
         reportService = new ReportServiceImpl[IO](config.report, processingDelay, tickStats, logger)
         statsService = new PipelineStatsService[IO](
@@ -52,7 +54,8 @@ object Main extends IOApp {
           logger
         )
         _ <- Server.resource[IO](routes, config.server, logger)
-      } yield reportService.report(subscriber.subscribe()).drain.mergeHaltBoth(statsService.run.drain)
+        reports = reportService.report(subscriber.subscribe()).evalTap(report => latestReport.set(Some(report)))
+      } yield reports.drain.mergeHaltBoth(statsService.run.drain)
 
     val program: IO[ExitCode] =
       appResource.use(streams => BackgroundStream.runForever("reports and stats", streams))

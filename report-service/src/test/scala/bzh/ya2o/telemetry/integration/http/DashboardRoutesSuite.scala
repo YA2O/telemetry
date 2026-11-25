@@ -4,10 +4,15 @@ package integration.http
 import bzh.ya2o.telemetry.logic.PipelineStats
 import bzh.ya2o.telemetry.logic.ProcessingDelay
 import bzh.ya2o.telemetry.logic.QueueDepth
+import bzh.ya2o.telemetry.logic.ReportService.Report
+import bzh.ya2o.telemetry.logic.ReportService.VersionCounter
 import cats.effect.testkit.TestControl
 import cats.effect.IO
 import cats.effect.Ref
+import fs2.concurrent.Signal
 import fs2.concurrent.SignallingRef
+import java.time.Instant
+import scala.collection.SortedMap
 import munit.CatsEffectSuite
 import org.http4s.implicits._
 import org.http4s.Method
@@ -19,11 +24,14 @@ class DashboardRoutesSuite extends CatsEffectSuite {
 
   private val stats = PipelineStats(80, 12, 40, Some(QueueDepth(693, 50)), 50)
 
-  private def eventsFrom(latest: SignallingRef[IO, Option[PipelineStats]]): fs2.Stream[IO, ServerSentEvent] =
+  private def eventsFrom(
+    latest: SignallingRef[IO, Option[PipelineStats]],
+    latestReport: Signal[IO, Option[Report]] = Signal.constant[IO, Option[Report]](None)
+  ): fs2.Stream[IO, ServerSentEvent] =
     fs2.Stream
       .eval(Ref[IO].of(ProcessingDelay.None))
       .flatMap { knob =>
-        val app = new RoutesImpl[IO](knob, latest).publicRoutes.orNotFound
+        val app = new RoutesImpl[IO](knob, latest, latestReport).publicRoutes.orNotFound
         fs2.Stream.eval(app.run(Request[IO](Method.GET, uri"/dashboard/events")))
       }
       .flatMap(_.body.through(ServerSentEvent.decoder[IO]))
@@ -59,6 +67,30 @@ class DashboardRoutesSuite extends CatsEffectSuite {
     TestControl.executeEmbed(program).map { case (elapsed, events) =>
       assertEquals(elapsed, 3.seconds, "the initial None must not be sent")
       assertEquals(events.size, 1)
+    }
+  }
+
+  test("events_statsAndReportAvailable_sendsOneEventOfEachType") {
+    // Arrange
+    val report = Report(
+      Instant.parse("2026-11-25T12:00:00Z"),
+      10.seconds,
+      List(VersionCounter(TestData.measurement("v1.0.0", 1f).clientVersion, 3, SortedMap(0 -> 1L, 10 -> 2L)))
+    )
+    val result = for {
+      latestStats <- SignallingRef[IO].of(Option(stats))
+      latestReport <- SignallingRef[IO].of(Option(report))
+      // Act
+      events <- eventsFrom(latestStats, latestReport).take(2).compile.toList
+    } yield events
+
+    // Assert
+    result.map { events =>
+      assertEquals(events.flatMap(_.eventType).toSet, Set("stats", "report"))
+      assertEquals(
+        events.find(_.eventType.contains("report")).flatMap(_.data),
+        Some("""{"timestamp":"2026-11-25T12:00:00Z","period":"10 seconds","counters":[{"clientVersion":"v1.0.0","count":3,"countPerDivision":{"0":1,"10":2}}]}""")
+      )
     }
   }
 

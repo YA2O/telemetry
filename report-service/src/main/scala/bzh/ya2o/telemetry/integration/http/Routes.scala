@@ -5,10 +5,12 @@ import bzh.ya2o.telemetry.application.error.CustomError
 import bzh.ya2o.telemetry.application.error.CustomError.YourClientBadRequestError
 import bzh.ya2o.telemetry.logic.PipelineStats
 import bzh.ya2o.telemetry.logic.ProcessingDelay
+import bzh.ya2o.telemetry.logic.ReportService.Report
 import cats.effect.Async
 import cats.effect.Ref
 import cats.implicits._
 import fs2.concurrent.Signal
+import fs2.Stream
 import io.circe.syntax._
 import io.circe.Decoder
 import io.circe.Encoder
@@ -28,7 +30,8 @@ trait Routes[F[_]] {
 
 class RoutesImpl[F[_]](
   processingDelay: Ref[F, ProcessingDelay],
-  latestStats: Signal[F, Option[PipelineStats]]
+  latestStats: Signal[F, Option[PipelineStats]],
+  latestReport: Signal[F, Option[Report]]
 )(implicit F: Async[F])
   extends Routes[F] {
 
@@ -46,15 +49,16 @@ class RoutesImpl[F[_]](
     } <+> knobRoutes <+> dashboardRoutes
   }
 
-  /** Server-Sent Events: the latest pipeline stats, then each new value. A reader that falls behind
-    * skips values instead of slowing the writer, and nothing is sent until the 1st stats exist.
+  /** Server-Sent Events of 2 types, `stats` and `report`: for each, the latest value, then each new
+    * value. A reader that falls behind skips values instead of slowing the writer, and nothing of a
+    * type is sent until its 1st value exists.
     */
   private[this] def dashboardRoutes: HttpRoutes[F] = HttpRoutes.of[F] { case GET -> Root / "dashboard" / "events" =>
-    val events = latestStats.discrete.unNone.map { stats =>
-      ServerSentEvent(data = Some(stats.asJson.noSpaces), eventType = Some("stats"))
-    }
-    Ok(events)
+    Ok(eventsOf(latestStats, "stats").merge(eventsOf(latestReport, "report")))
   }
+
+  private[this] def eventsOf[A: Encoder](latest: Signal[F, Option[A]], eventType: String): Stream[F, ServerSentEvent] =
+    latest.discrete.unNone.map(value => ServerSentEvent(data = Some(value.asJson.noSpaces), eventType = Some(eventType)))
 
   /** The slow-down knob: `GET` reads the delay per message, `PUT {"millis": 50}` sets it. */
   private[this] def knobRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
