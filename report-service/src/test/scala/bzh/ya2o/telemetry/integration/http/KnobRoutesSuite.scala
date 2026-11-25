@@ -1,9 +1,11 @@
 package bzh.ya2o.telemetry
 package integration.http
 
+import bzh.ya2o.telemetry.logic.PipelineStats
 import bzh.ya2o.telemetry.logic.ProcessingDelay
 import cats.effect.IO
 import cats.effect.Ref
+import fs2.concurrent.Signal
 import munit.CatsEffectSuite
 import org.http4s.implicits._
 import org.http4s.Method
@@ -12,7 +14,8 @@ import org.http4s.Status
 
 class KnobRoutesSuite extends CatsEffectSuite {
 
-  private def routesWith(delay: Ref[IO, ProcessingDelay]) = new RoutesImpl[IO](delay).publicRoutes.orNotFound
+  private def routesWith(delay: Ref[IO, ProcessingDelay]) =
+    new RoutesImpl[IO](delay, Signal.constant[IO, Option[PipelineStats]](None)).publicRoutes.orNotFound
 
   private def put(body: String) =
     Request[IO](Method.PUT, uri"/knob/delay").withEntity(body)

@@ -12,6 +12,7 @@ services:
       RABBITMQ_DEFAULT_PASS: admin
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/20-collect-statistics.conf:/etc/rabbitmq/conf.d/20-collect-statistics.conf:ro
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]

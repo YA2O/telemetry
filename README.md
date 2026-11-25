@@ -97,6 +97,26 @@ curl localhost:8081/knob/delay
 At 50 ms per message it handles at most 20 messages/s, so with the simulator at 100/s the "Ready" count in
 RabbitMQ grows. Set it back to 0 and the queue drains.
 
+### Pipeline stats
+
+Every second, the report service publishes what happened in the last second as Server-Sent Events:
+```
+curl -N localhost:8081/dashboard/events
+```
+```
+event: stats
+data: {"processedPerSec":20,"delayAvgMillis":8150,"delayMaxMillis":8900,"queue":{"ready":693,"unacked":50},"knobDelayMillis":50}
+```
+- `processedPerSec`: messages counted in the last second.
+- `delayAvgMillis`, `delayMaxMillis`: time between a measurement's `timestamp` and the moment it was counted.
+- `queue`: Ready and Unacked messages, read from RabbitMQ's management API (port `messaging.managementPort`,
+  default 15672); `null` when that API does not answer within 800 ms.
+- `knobDelayMillis`: the current slow-down knob.
+
+`docker-compose.yml` mounts `rabbitmq/20-collect-statistics.conf`, which makes RabbitMQ refresh its queue figures
+every second instead of every 5 (the file explains which settings that takes). After changing it, recreate the
+RabbitMQ container: `docker compose up -d --force-recreate rabbitmq`.
+
 ### Tests
 
 ```
