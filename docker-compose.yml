@@ -48,7 +48,8 @@ services:
     container_name: report_service
     image: telemetry-report-service:0.0.1-SNAPSHOT
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     environment:
       RABBITMQ_HOST: rabbitmq
     # If you want to access the service from the host, map to a unique host port
