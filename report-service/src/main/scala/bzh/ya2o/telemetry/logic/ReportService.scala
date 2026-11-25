@@ -52,6 +52,7 @@ object ReportService {
 class ReportServiceImpl[F[_]](
   config: ReportConfig,
   processingDelay: Ref[F, ProcessingDelay],
+  tickStats: Ref[F, TickStats],
   logger: Logger[F]
 )(implicit F: Async[F])
   extends ReportService[F] {
@@ -94,7 +95,9 @@ class ReportServiceImpl[F[_]](
                 )
               case None => Some(Counter(count = 1, countPerDivision = Map(division -> 1)))
             }
-        } >> delivery.ack
+        } >>
+        F.realTime.flatMap(now => tickStats.update(_.add(TickStats.delayBetween(measurement.timestamp, now)))) >>
+        delivery.ack
       }
     }
 

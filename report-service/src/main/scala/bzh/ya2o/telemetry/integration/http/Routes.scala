@@ -3,10 +3,12 @@ package integration.http
 
 import bzh.ya2o.telemetry.application.error.CustomError
 import bzh.ya2o.telemetry.application.error.CustomError.YourClientBadRequestError
+import bzh.ya2o.telemetry.logic.PipelineStats
 import bzh.ya2o.telemetry.logic.ProcessingDelay
 import cats.effect.Async
 import cats.effect.Ref
 import cats.implicits._
+import fs2.concurrent.Signal
 import io.circe.syntax._
 import io.circe.Decoder
 import io.circe.Encoder
@@ -18,12 +20,17 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.HttpRoutes
 import org.http4s.Request
 import org.http4s.Response
+import org.http4s.ServerSentEvent
 
 trait Routes[F[_]] {
   def publicRoutes: HttpRoutes[F]
 }
 
-class RoutesImpl[F[_]](processingDelay: Ref[F, ProcessingDelay])(implicit F: Async[F]) extends Routes[F] {
+class RoutesImpl[F[_]](
+  processingDelay: Ref[F, ProcessingDelay],
+  latestStats: Signal[F, Option[PipelineStats]]
+)(implicit F: Async[F])
+  extends Routes[F] {
 
   private[this] val dsl = new Http4sDsl[F] {}
   import dsl._
@@ -36,7 +43,17 @@ class RoutesImpl[F[_]](processingDelay: Ref[F, ProcessingDelay])(implicit F: Asy
 
     HttpRoutes.of[F] { case req @ jsonRoutes(jsonEndpoint) =>
       req.decodeStrict[Json](jsonEndpoint) |> handleErrors
-    } <+> knobRoutes
+    } <+> knobRoutes <+> dashboardRoutes
+  }
+
+  /** Server-Sent Events: the latest pipeline stats, then each new value. A reader that falls behind
+    * skips values instead of slowing the writer, and nothing is sent until the 1st stats exist.
+    */
+  private[this] def dashboardRoutes: HttpRoutes[F] = HttpRoutes.of[F] { case GET -> Root / "dashboard" / "events" =>
+    val events = latestStats.discrete.unNone.map { stats =>
+      ServerSentEvent(data = Some(stats.asJson.noSpaces), eventType = Some("stats"))
+    }
+    Ok(events)
   }
 
   /** The slow-down knob: `GET` reads the delay per message, `PUT {"millis": 50}` sets it. */

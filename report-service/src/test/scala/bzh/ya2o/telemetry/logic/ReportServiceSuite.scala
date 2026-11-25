@@ -10,22 +10,29 @@ import cats.effect.IO
 import cats.effect.Ref
 import cats.implicits._
 import fs2.Stream
+import java.time.Instant
 import munit.CatsEffectSuite
 import scala.concurrent.duration._
 
 class ReportServiceSuite extends CatsEffectSuite {
 
+  /** A report service with a 1 s report period and the given knob, plus its tick stats. */
+  private def serviceWith(delayMillis: Long): IO[(ReportServiceImpl[IO], Ref[IO, TickStats])] =
+    for {
+      delay <- IO.fromEither(ProcessingDelay.fromMillis(delayMillis).leftMap(new IllegalArgumentException(_)))
+      delayRef <- Ref[IO].of(delay)
+      tickStats <- Ref[IO].of(TickStats.Empty)
+    } yield (new ReportServiceImpl[IO](ReportConfig(1.second), delayRef, tickStats, NoOpLogger), tickStats)
+
+  private def deliveriesOf(cpus: List[Float], ack: IO[Unit]): List[Delivery[IO, CpuMeasurement]] =
+    cpus.map(cpu => Delivery[IO, CpuMeasurement](TestData.measurement("v1.0.0", cpu), ack))
+
   test("report_3Deliveries_acksEachOnceAndCountsThemPerDivision") {
     // Arrange
-    val cpus = List(5f, 15f, 19.5f)
-
     val program = for {
-      delay <- Ref[IO].of(ProcessingDelay.None)
-      service = new ReportServiceImpl[IO](ReportConfig(1.second), delay, NoOpLogger)
+      (service, _) <- serviceWith(delayMillis = 0)
       acks <- Ref[IO].of(0)
-      deliveries = cpus.map { cpu =>
-        Delivery[IO, CpuMeasurement](TestData.measurement("v1.0.0", cpu), acks.update(_ + 1))
-      }
+      deliveries = deliveriesOf(List(5f, 15f, 19.5f), acks.update(_ + 1))
       // Act
       reports <- service.report(Stream.emits(deliveries)).take(1).compile.toList
       ackCount <- acks.get
@@ -42,31 +49,44 @@ class ReportServiceSuite extends CatsEffectSuite {
 
   test("report_noDeliveries_emitsEmptyReportAndAcksNothing") {
     // Arrange
-    val program = Ref[IO].of(ProcessingDelay.None).flatMap { delay =>
-      val service = new ReportServiceImpl[IO](ReportConfig(1.second), delay, NoOpLogger)
+    val program = serviceWith(delayMillis = 0).flatMap { case (service, _) =>
       // Act
       service.report(Stream.empty).take(1).compile.toList
     }
-    val result = TestControl.executeEmbed(program)
 
     // Assert
-    result.map(reports => assertEquals(reports.flatMap(_.counters), Nil))
+    TestControl.executeEmbed(program).map(reports => assertEquals(reports.flatMap(_.counters), Nil))
   }
 
   test("report_delay400msAnd3Deliveries_countsOnly2InThe1stSecond") {
     // Arrange
-    val deliveries = List(1f, 2f, 3f).map(cpu => Delivery[IO, CpuMeasurement](TestData.measurement("v1.0.0", cpu), IO.unit))
     val program = for {
-      delay <- IO.fromEither(ProcessingDelay.fromMillis(400).leftMap(new IllegalArgumentException(_)))
-      delayRef <- Ref[IO].of(delay)
-      service = new ReportServiceImpl[IO](ReportConfig(1.second), delayRef, NoOpLogger)
+      (service, _) <- serviceWith(delayMillis = 400)
       // Act
-      reports <- service.report(Stream.emits(deliveries)).take(2).compile.toList
+      reports <- service.report(Stream.emits(deliveriesOf(List(1f, 2f, 3f), IO.unit))).take(2).compile.toList
     } yield reports
 
     // Assert
     TestControl.executeEmbed(program).map { reports =>
       assertEquals(reports.map(_.counters.map(_.count).sum), List(2L, 1L), "counted at 400 ms and 800 ms, then 1200 ms")
+    }
+  }
+
+  test("report_delay400msAndMessagesSentAt0_recordsCountAndDelaysInTickStats") {
+    // Arrange
+    val sentAt0 = List(1f, 2f, 3f).map { cpu =>
+      Delivery[IO, CpuMeasurement](TestData.measurementAt(Instant.EPOCH, "v1.0.0", cpu), IO.unit)
+    }
+    val program = for {
+      (service, tickStats) <- serviceWith(delayMillis = 400)
+      // Act
+      _ <- service.report(Stream.emits(sentAt0)).take(1).compile.drain
+      recorded <- tickStats.get
+    } yield recorded
+
+    // Assert: counted at 400 ms and 800 ms before the 1st report at 1 s
+    TestControl.executeEmbed(program).map { recorded =>
+      assertEquals(recorded, TickStats(2, 1200.millis, 800.millis))
     }
   }
 

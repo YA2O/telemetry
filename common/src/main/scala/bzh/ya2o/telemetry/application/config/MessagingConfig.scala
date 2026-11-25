@@ -18,6 +18,7 @@ import eu.timepit.refined.types.string.NonEmptyString
 final case class MessagingConfig(
   host: NonEmptyString,
   portNumber: PortNumber,
+  managementPort: PortNumber,
   userName: SimpleString,
   password: SimpleString, // TODO use Secret string
   maxQueued: PositiveInt,
@@ -35,6 +36,7 @@ object MessagingConfig {
     (
       env("RABBITMQ_HOST").as[NonEmptyString].default("localhost"),
       prop("messaging.port").as[PortNumber].default(5672),
+      prop("messaging.managementPort").as[PortNumber].default(15672),
       prop("messaging.user").as[SimpleString].default("admin"),
       prop("messaging.password").as[SimpleString].default("admin"),
       prop("messaging.maxQueued").as[PositiveInt].default(100),

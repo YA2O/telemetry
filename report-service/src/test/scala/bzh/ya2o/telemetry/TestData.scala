@@ -11,9 +11,12 @@ import java.time.Instant
 object TestData {
 
   def measurement(clientVersion: String, cpu: Float): CpuMeasurement =
+    measurementAt(Instant.parse("2020-01-01T00:00:00Z"), clientVersion, cpu)
+
+  def measurementAt(timestamp: Instant, clientVersion: String, cpu: Float): CpuMeasurement =
     CpuMeasurement(
       valid(DeviceId("device-1")),
-      Instant.parse("2020-01-01T00:00:00Z"),
+      timestamp,
       valid(ClientVersion(clientVersion)),
       valid(Cpu(cpu))
     )

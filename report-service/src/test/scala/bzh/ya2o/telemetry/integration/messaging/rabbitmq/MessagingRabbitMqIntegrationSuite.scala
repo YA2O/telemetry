@@ -4,8 +4,10 @@ package integration.messaging.rabbitmq
 import bzh.ya2o.telemetry.application.config.MessagingConfig
 import bzh.ya2o.telemetry.application.config.MessagingConfig.PositiveInt
 import bzh.ya2o.telemetry.application.config.MessagingConfig.SimpleString
+import bzh.ya2o.telemetry.integration.http.RabbitMqManagement
 import bzh.ya2o.telemetry.integration.json.JsonDecoders._
 import bzh.ya2o.telemetry.integration.json.JsonEncoders._
+import bzh.ya2o.telemetry.logic.QueueDepth
 import bzh.ya2o.telemetry.model.CpuMeasurement
 import bzh.ya2o.telemetry.TestData.NoOpLogger
 import cats.effect.IO
@@ -18,6 +20,7 @@ import eu.timepit.refined.types.string.NonEmptyString
 import io.circe.syntax._
 import java.nio.charset.StandardCharsets.UTF_8
 import munit.CatsEffectSuite
+import org.http4s.ember.client.EmberClientBuilder
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.utility.DockerImageName
 import scala.concurrent.duration._
@@ -137,14 +140,43 @@ class MessagingRabbitMqIntegrationSuite extends CatsEffectSuite {
     }
   }
 
+  test("queueDepth_realManagementApi_reportsTheReadyMessages") {
+    // Arrange
+    val queue: SimpleString = "test.depth"
+    val body = TestData.measurement("v1.0.0", 30f).asJson.noSpaces
+    val expected = QueueDepth(ready = 2, unacked = 0)
+
+    // Act: RabbitMQ refreshes these figures every 5 s by default, so poll for up to 20 s
+    val result = messaging(queue, prefetchCount = 10).use { m =>
+      publishRaw(queue, body) >> publishRaw(queue, body) >>
+        EmberClientBuilder.default[IO].build.use { client =>
+          val api = new RabbitMqManagement[IO](client, configFor(queue, prefetchCount = 10))
+          def poll(attemptsLeft: Int): IO[Either[Throwable, QueueDepth]] =
+            api.queueDepth.attempt.flatMap {
+              case Right(`expected`) => IO.pure(Right(expected))
+              case other if attemptsLeft <= 1 => IO.pure(other)
+              case _ => IO.sleep(1.second) >> poll(attemptsLeft - 1)
+            }
+          poll(20)
+        }
+    }
+
+    // Assert
+    result.map(depth => assertEquals(depth, Right(expected)))
+  }
+
   private def messaging(
     queue: SimpleString,
     prefetchCount: PositiveInt
-  ): Resource[IO, MessagingRabbitMq[IO, CpuMeasurement]] = {
+  ): Resource[IO, MessagingRabbitMq[IO, CpuMeasurement]] =
+    MessagingRabbitMq.make[IO, CpuMeasurement](configFor(queue, prefetchCount), NoOpLogger)
+
+  private def configFor(queue: SimpleString, prefetchCount: PositiveInt): MessagingConfig = {
     val container = rabbit()
-    val config = MessagingConfig(
+    MessagingConfig(
       host = NonEmptyString.unsafeFrom(container.getHost),
       portNumber = PortNumber.unsafeFrom(container.getAmqpPort),
+      managementPort = PortNumber.unsafeFrom(container.getHttpPort),
       userName = "guest",
       password = "guest",
       maxQueued = 100,
@@ -153,7 +185,6 @@ class MessagingRabbitMqIntegrationSuite extends CatsEffectSuite {
       routingKey = queue,
       queueName = queue
     )
-    MessagingRabbitMq.make[IO, CpuMeasurement](config, NoOpLogger)
   }
 
   private def publishRaw(routingKey: SimpleString, body: String): IO[Unit] =
