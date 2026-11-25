@@ -53,7 +53,7 @@ lazy val serviceSettings = commonSettings ++ Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(common, webApi, reportService)
+  .aggregate(common, webApi, reportService, simulator)
   .settings(
     name := "telemetry",
     publish / skip := true
@@ -79,6 +79,15 @@ lazy val reportService = (project in file("report-service"))
       "org.typelevel" %% "cats-effect-testkit" % "3.6.3" % Test,
       "org.testcontainers" % "rabbitmq" % TestcontainersVersion % Test
     )
+  )
+
+lazy val simulator = (project in file("simulator"))
+  .dependsOn(common)
+  .settings(commonSettings)
+  .settings(
+    name := "telemetry-simulator",
+    Compile / mainClass := Some("bzh.ya2o.telemetry.simulator.Main"),
+    libraryDependencies += "org.typelevel" %% "cats-effect-testkit" % "3.6.3" % Test
   )
 
 addCommandAlias("validate", "clean; cleanFiles; reload; update; test; scalafmtCheck; scalafmtSbtCheck; doc")

@@ -20,8 +20,8 @@ Prerequisite: you need to have `sbt` installed on your computer.
 
 Usage of the program is done in the CLI.
 
-The build has 3 sbt projects, run from the repository root: `common` (code shared by both services),
-`webApi` (folder `web-api`) and `reportService` (folder `report-service`).
+The build has 4 sbt projects, run from the repository root: `common` (code shared by the others),
+`webApi` (folder `web-api`), `reportService` (folder `report-service`) and `simulator` (a load generator).
 
 First, publish the Docker images, from the repository root:
 ```
@@ -65,12 +65,14 @@ curl -v 'http://localhost:8080/telemetry/cpu' --json '
 }'
 ```
 
-(Quick solution to send many (identical) requests:
+To send a steady load, run the simulator from the repository root:
 ```
-while true; do curl -#i 'http://localhost:8080/telemetry/cpu' \
---json '{"timestamp": "2020-01-01T00:00:00Z", "deviceId": "XXXX", "clientVersion": "v12.3.4", "cpu": 25}' ; done
+sbt -Dsimulator.ratePerSec=500 simulator/run
 ```
-)
+It sends `simulator.ratePerSec` measurements per second (default 100) to `simulator.target` (default
+`http://localhost:8080/telemetry/cpu`), with at most `simulator.concurrency` requests in flight (default 16).
+Each measurement has the current time, 1 of 100 devices, 1 of 3 client versions and a random CPU value.
+Stop it with Ctrl+C.
 
 ### Messaging settings
 
