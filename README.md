@@ -72,6 +72,25 @@ while true; do curl -#i 'http://localhost:8080/telemetry/cpu' \
 ```
 )
 
+### Messaging settings
+
+Both services read the RabbitMQ host from the `RABBITMQ_HOST` environment variable (`docker-compose.yml` sets
+it to `rabbitmq`; the default is `localhost`). The other settings are system properties, e.g.
+`-Dmessaging.port=5672`, `-Dmessaging.user=admin`, `-Dmessaging.password=admin`.
+
+The report service acknowledges each message only after counting it, and lets at most
+`messaging.prefetchCount` messages (default 50) be unacknowledged at once. When it is slower than the incoming
+load, the backlog therefore stays in RabbitMQ, visible as "Ready" messages in the management UI at
+http://localhost:15672 (user `admin`, password `admin`). A message that cannot be decoded is logged and
+rejected; it is not requeued.
+
+### Tests
+
+```
+sbt test
+```
+The report service's messaging tests start a real RabbitMQ with Testcontainers, so Docker must be running.
+
 ## Notes
 
 * Obviously, in real life, the server and the consumer should be deployed and run separately.

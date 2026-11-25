@@ -3,6 +3,7 @@ package logic
 
 import bzh.ya2o.telemetry.application.config.ReportConfig
 import bzh.ya2o.telemetry.application.logging.Logger
+import bzh.ya2o.telemetry.integration.messaging.middleware.Delivery
 import bzh.ya2o.telemetry.logic.ReportService.Report
 import bzh.ya2o.telemetry.logic.ReportService.VersionCounter
 import bzh.ya2o.telemetry.model.CpuMeasurement
@@ -16,7 +17,7 @@ import java.time.Instant
 import scala.collection.SortedMap
 import scala.concurrent.duration._
 trait ReportService[F[_]] {
-  def report(input: Stream[F, CpuMeasurement]): Stream[F, Report]
+  def report(input: Stream[F, Delivery[F, CpuMeasurement]]): Stream[F, Report]
 }
 
 object ReportService {
@@ -56,7 +57,7 @@ class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit 
     countPerDivision: Map[Int, Long]
   )
 
-  override def report(input: Stream[F, CpuMeasurement]): Stream[F, Report] = {
+  override def report(input: Stream[F, Delivery[F, CpuMeasurement]]): Stream[F, Report] = {
 
     def computeDecimalDivision(f: Float): Int = {
       // Compute in which "division" a value belongs, i.e. 0 <= division0 < 10 ≤  division10 < 20 ≤ division20 ... < 90 ≤ division90 ≤ 100
@@ -66,10 +67,11 @@ class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit 
     }
 
     def count(
-      input: Stream[F, CpuMeasurement],
+      input: Stream[F, Delivery[F, CpuMeasurement]],
       counters: Ref[F, Map[ClientVersion, Counter]]
-    ): Stream[F, CpuMeasurement] = {
-      input.evalTap { measurement =>
+    ): Stream[F, Delivery[F, CpuMeasurement]] = {
+      input.evalTap { delivery =>
+        val measurement = delivery.value
         logger.debug(s"<<< (consuming) $measurement") >> counters.update {
           (counters: Map[ClientVersion, Counter]) =>
             val clientVersion = measurement.clientVersion
@@ -87,7 +89,7 @@ class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit 
                 )
               case None => Some(Counter(count = 1, countPerDivision = Map(division -> 1)))
             }
-        }
+        } >> delivery.ack
       }
     }
 

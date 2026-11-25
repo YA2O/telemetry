@@ -9,6 +9,7 @@ val LogbackVersion = "1.2.5"
 val MunitVersion = "0.7.27"
 val MunitCatsEffectVersion = "1.0.5"
 val Fs2RabbitMqClientVersion = "5.4.4"
+val TestcontainersVersion = "1.21.4"
 
 lazy val commonSettings = Seq(
   organization := "bzh.ya2o",
@@ -72,7 +73,13 @@ lazy val reportService = (project in file("report-service"))
   .enablePlugins(JavaAppPackaging, DockerPlugin)
   .dependsOn(common)
   .settings(serviceSettings)
-  .settings(name := "telemetry-report-service")
+  .settings(
+    name := "telemetry-report-service",
+    libraryDependencies ++= Seq(
+      "org.typelevel" %% "cats-effect-testkit" % "3.6.3" % Test,
+      "org.testcontainers" % "rabbitmq" % TestcontainersVersion % Test
+    )
+  )
 
 addCommandAlias("validate", "clean; cleanFiles; reload; update; test; scalafmtCheck; scalafmtSbtCheck; doc")
 addCommandAlias("dev", "test; scalafmtAll; scalafmtSbt")
