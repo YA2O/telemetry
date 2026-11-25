@@ -23,6 +23,7 @@ import org.http4s.HttpRoutes
 import org.http4s.Request
 import org.http4s.Response
 import org.http4s.ServerSentEvent
+import org.http4s.StaticFile
 
 trait Routes[F[_]] {
   def publicRoutes: HttpRoutes[F]
@@ -53,8 +54,12 @@ class RoutesImpl[F[_]](
     * value. A reader that falls behind skips values instead of slowing the writer, and nothing of a
     * type is sent until its 1st value exists.
     */
-  private[this] def dashboardRoutes: HttpRoutes[F] = HttpRoutes.of[F] { case GET -> Root / "dashboard" / "events" =>
-    Ok(eventsOf(latestStats, "stats").merge(eventsOf(latestReport, "report")))
+  private[this] def dashboardRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
+    case GET -> Root / "dashboard" / "events" =>
+      Ok(eventsOf(latestStats, "stats").merge(eventsOf(latestReport, "report")))
+
+    case req @ GET -> Root / "dashboard" =>
+      StaticFile.fromResource[F]("/dashboard/index.html", Some(req)).getOrElseF(NotFound())
   }
 
   private[this] def eventsOf[A: Encoder](latest: Signal[F, Option[A]], eventType: String): Stream[F, ServerSentEvent] =

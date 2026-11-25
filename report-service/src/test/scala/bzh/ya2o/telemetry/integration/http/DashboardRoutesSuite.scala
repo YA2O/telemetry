@@ -15,9 +15,11 @@ import java.time.Instant
 import scala.collection.SortedMap
 import munit.CatsEffectSuite
 import org.http4s.implicits._
+import org.http4s.MediaType
 import org.http4s.Method
 import org.http4s.Request
 import org.http4s.ServerSentEvent
+import org.http4s.Status
 import scala.concurrent.duration._
 
 class DashboardRoutesSuite extends CatsEffectSuite {
@@ -91,6 +93,25 @@ class DashboardRoutesSuite extends CatsEffectSuite {
         events.find(_.eventType.contains("report")).flatMap(_.data),
         Some("""{"timestamp":"2026-11-25T12:00:00Z","period":"10 seconds","counters":[{"clientVersion":"v1.0.0","count":3,"countPerDivision":{"0":1,"10":2}}]}""")
       )
+    }
+  }
+
+  test("page_get_servesTheDashboardHtml") {
+    // Arrange
+    val response = for {
+      knob <- Ref[IO].of(ProcessingDelay.None)
+      latest <- SignallingRef[IO].of(Option.empty[PipelineStats])
+      app = new RoutesImpl[IO](knob, latest, Signal.constant[IO, Option[Report]](None)).publicRoutes.orNotFound
+      // Act
+      resp <- app.run(Request[IO](Method.GET, uri"/dashboard"))
+      body <- resp.as[String]
+    } yield (resp, body)
+
+    // Assert
+    response.map { case (resp, body) =>
+      assertEquals(resp.status, Status.Ok)
+      assertEquals(resp.contentType.map(_.mediaType), Some(MediaType.text.html))
+      assert(body.contains("""new EventSource("/dashboard/events")"""), "page must read the event stream")
     }
   }
 
