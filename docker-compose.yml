@@ -52,7 +52,7 @@ services:
       RABBITMQ_HOST: rabbitmq
     # If you want to access the service from the host, map to a unique host port
     ports:
-      - "8081:8080"   # change container port if your app listens on another port
+      - "8081:8081"   # report-service listens on 8081 (server.port)
     restart: unless-stopped
 
 volumes:

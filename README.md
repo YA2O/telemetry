@@ -86,6 +86,17 @@ load, the backlog therefore stays in RabbitMQ, visible as "Ready" messages in th
 http://localhost:15672 (user `admin`, password `admin`). A message that cannot be decoded is logged and
 rejected; it is not requeued.
 
+### Slow-down knob
+
+To see a backlog build up, slow the report service down while it runs. It waits this long on each message
+before counting it (0 to 60000 ms, default 0):
+```
+curl -X PUT localhost:8081/knob/delay --json '{"millis": 50}'
+curl localhost:8081/knob/delay
+```
+At 50 ms per message it handles at most 20 messages/s, so with the simulator at 100/s the "Ready" count in
+RabbitMQ grows. Set it back to 0 and the queue drains.
+
 ### Tests
 
 ```

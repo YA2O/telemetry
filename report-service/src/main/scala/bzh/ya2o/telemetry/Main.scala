@@ -9,12 +9,14 @@ import bzh.ya2o.telemetry.integration.json.JsonDecoders._
 import bzh.ya2o.telemetry.integration.json.JsonEncoders._
 import bzh.ya2o.telemetry.integration.messaging.rabbitmq.MessagingRabbitMq
 import bzh.ya2o.telemetry.integration.messaging.SubscriberImpl
+import bzh.ya2o.telemetry.logic.ProcessingDelay
 import bzh.ya2o.telemetry.logic.ReportService.Report
 import bzh.ya2o.telemetry.logic.ReportServiceImpl
 import cats.effect.kernel.Outcome
 import cats.effect.ExitCode
 import cats.effect.IO
 import cats.effect.IOApp
+import cats.effect.Ref
 import cats.effect.Resource
 import fs2.Stream
 import org.log4s.getLogger
@@ -30,10 +32,11 @@ object Main extends IOApp {
       for {
         config <- Config.config[IO].resource
         messaging <- MessagingRabbitMq.make(config.messaging, logger)
-        routes = new RoutesImpl[IO]()
+        processingDelay <- Resource.eval(Ref[IO].of(ProcessingDelay.None))
+        routes = new RoutesImpl[IO](processingDelay)
         subscriber = new SubscriberImpl[IO](messaging)
         _ <- Server.resource[IO](routes, config.server, logger)
-      } yield new ReportServiceImpl[IO](config.report, logger).report(subscriber.subscribe())
+      } yield new ReportServiceImpl[IO](config.report, processingDelay, logger).report(subscriber.subscribe())
 
     val program: IO[ExitCode] = appResource.use(reports => BackgroundStream.runForever("reports", reports))
 

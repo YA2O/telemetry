@@ -49,7 +49,11 @@ object ReportService {
 
 }
 
-class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit F: Async[F])
+class ReportServiceImpl[F[_]](
+  config: ReportConfig,
+  processingDelay: Ref[F, ProcessingDelay],
+  logger: Logger[F]
+)(implicit F: Async[F])
   extends ReportService[F] {
 
   case class Counter private (
@@ -72,6 +76,7 @@ class ReportServiceImpl[F[_]](config: ReportConfig, logger: Logger[F])(implicit 
     ): Stream[F, Delivery[F, CpuMeasurement]] = {
       input.evalTap { delivery =>
         val measurement = delivery.value
+        processingDelay.get.flatMap(delay => F.sleep(delay.value)) >>
         logger.debug(s"<<< (consuming) $measurement") >> counters.update {
           (counters: Map[ClientVersion, Counter]) =>
             val clientVersion = measurement.clientVersion
